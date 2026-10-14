@@ -62,13 +62,9 @@ const loader = new THREE.GLTFLoader();
 
 loader.load('player_colored.glb', gltf => {
   player = gltf.scene;
-  
-  // Уменьшил масштаб, чтобы ноги были видны
   player.scale.set(1.2, 1.2, 1.2);
-  // Поднял выше — ноги теперь не проваливаются
-  player.position.set(0, 1.5, 0);
+  player.position.set(0, 2.2, 0);
   player.rotation.y = Math.PI;
-  
   player.traverse(obj => { 
     if (obj.isMesh) {
       obj.castShadow = true;
@@ -149,38 +145,25 @@ function animate() {
 
   if (player && !gameOver) {
     gameStarted = true;
-    runTime += 0.15; // Чуть быстрее анимация
+    runTime += 0.15;
     
     player.position.x += (targetX - player.position.x) * 0.2;
 
     if (!isJumping) {
-      // Базовая высота (ноги на земле)
-      const baseY = 1.5;
-      
-      // Подпрыгивание в такт бегу (два подпрыгивания за цикл — как настоящий бег)
+      const baseY = 2.2;
       const bounce = Math.abs(Math.sin(runTime * 2)) * 0.2;
       player.position.y = baseY + bounce;
-      
-      // Наклон корпуса вперёд (как при беге)
       player.rotation.x = 0.15 + Math.sin(runTime) * 0.05;
-      
-      // Покачивание влево-вправо (имитация переноса веса)
       player.rotation.z = Math.sin(runTime * 2) * 0.08;
-      
-      // Лёгкое покачивание по Y (имитация движения рук)
       player.rotation.y = Math.PI + Math.sin(runTime * 2) * 0.1;
     } else {
-      // Прыжок
       player.position.y += velocityY;
       velocityY -= 0.04;
-      
-      // В прыжке корпус чуть наклоняется вперёд
       player.rotation.x = 0.2;
       player.rotation.z = 0;
       player.rotation.y = Math.PI;
-      
-      if (player.position.y <= 1.5) {
-        player.position.y = 1.5;
+      if (player.position.y <= 2.2) {
+        player.position.y = 2.2;
         isJumping = false;
         velocityY = 0;
       }
@@ -201,14 +184,14 @@ function animate() {
     obstacles.forEach(o => {
       if (Math.abs(o.position.x - player.position.x) < 1 &&
           Math.abs(o.position.z - player.position.z) < 1 &&
-          player.position.y < 3) {
+          player.position.y < 3.5) {
         gameOver = true;
         document.getElementById('score').textContent = 'GAME OVER! Счёт: ' + score + ' (Нажми чтобы рестарт)';
       }
     });
 
-    camera.position.set(player.position.x * 0.3, 5, player.position.z + 8);
-    camera.lookAt(player.position.x, 2, player.position.z - 5);
+    camera.position.set(player.position.x * 0.3, 6, player.position.z + 8);
+    camera.lookAt(player.position.x, 2.5, player.position.z - 5);
 
     document.getElementById('score').textContent = 'Счёт: ' + score;
   }
