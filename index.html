@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Subway Runner 3D</title>
+<style>
+  body { margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; }
+  #score { position: absolute; top: 10px; left: 10px; color: white;
+           font-size: 24px; text-shadow: 2px 2px black; z-index: 10; }
+  #loading { position: absolute; top: 50%; left: 50%;
+             transform: translate(-50%, -50%); color: white;
+             font-size: 30px; text-shadow: 2px 2px black; text-align: center;}
+  #controls { position: absolute; bottom: 20px; left: 50%;
+              transform: translateX(-50%); color: white;
+              font-size: 14px; text-shadow: 2px 2px black;
+              text-align: center; opacity: 0.7; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="score">Счёт: 0</div>
+<div id="loading">Загрузка персонажа...<br><small>Подожди пару секунд</small></div>
+<div id="controls">← → или свайп для движения | Пробел или свайп вверх для прыжка</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 20, 80);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(5, 10, 5);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(20, 2000),
+  new THREE.MeshStandardMaterial({color: 0x444444})
+);
+ground.rotation.x = -Math.PI/2;
+ground.position.z = -900;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const lanes = [-2, 0, 2];
+let currentLane = 1;
+let targetX = 0;
+
+let player;
+let isJumping = false;
+let velocityY = 0;
+let runTime = 0;
+
+const loader = new THREE.GLTFLoader();
+
+loader.load('player_colored.glb', gltf => {
+  player = gltf.scene;
+  player.scale.set(1.6, 1.6, 1.6);
+  player.position.set(0, 1, 0);
+  player.rotation.y = Math.PI;
+  player.traverse(obj => { 
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+    }
+  });
+  scene.add(player);
+  document.getElementById('loading').style.display = 'none';
+  animate();
+}, 
+undefined,
+error => {
+  console.error('Ошибка загрузки:', error);
+  document.getElementById('loading').textContent = 'Ошибка! Проверь, что файл player_colored.glb загружен.';
+});
+
+const obstacles = [];
+function spawnObstacle() {
+  const lane = Math.floor(Math.random() * 3);
+  const obs = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5, 1.5, 1),
+    new THREE.MeshStandardMaterial({color: 0x222222})
+  );
+  obs.position.set(lanes[lane], 0.75, -100);
+  obs.castShadow = true;
+  scene.add(obs);
+  obstacles.push(obs);
+}
+
+let speed = 0.8;
+let score = 0;
+let gameOver = false;
+let gameStarted = false;
+
+document.addEventListener('keydown', e => {
+  if (!gameStarted) return;
+  if (gameOver && e.key.toLowerCase() === 'r') location.reload();
+  if ((e.key === 'ArrowLeft' || e.key === 'a') && currentLane > 0) currentLane--;
+  if ((e.key === 'ArrowRight' || e.key === 'd') && currentLane < 2) currentLane++;
+  if (e.key === ' ' && !isJumping) { isJumping = true; velocityY = 0.5; }
+  targetX = lanes[currentLane];
+});
+
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+});
+
+document.addEventListener('touchend', e => {
+  if (!gameStarted || gameOver) {
+    if (gameOver) location.reload();
+    return;
+  }
+  const touchEndX = e.changedTouches[0].clientX;
+  const touchEndY = e.changedTouches[0].clientY;
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchEndY - touchStartY;
+  
+  if (Math.abs(diffX) > Math.abs(diffY)) {
+    if (diffX > 30 && currentLane < 2) currentLane++;
+    else if (diffX < -30 && currentLane > 0) currentLane--;
+  } else {
+    if (diffY < -30 && !isJumping) {
+      isJumping = true;
+      velocityY = 0.5;
+    }
+  }
+  targetX = lanes[currentLane];
+});
+
+let spawnTimer = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (player && !gameOver) {
+    gameStarted = true;
+    runTime += 0.12;
+    
+    player.position.x += (targetX - player.position.x) * 0.2;
+
+    if (!isJumping) {
+      player.position.y = 1 + Math.abs(Math.sin(runTime * 2)) * 0.15;
+      player.rotation.x = Math.sin(runTime) * 0.08;
+      player.rotation.z = Math.sin(runTime * 2) * 0.03;
+    } else {
+      player.position.y += velocityY;
+      velocityY -= 0.04;
+      
+      if (player.position.y <= 1) {
+        player.position.y = 1;
+        isJumping = false;
+        velocityY = 0;
+      }
+    }
+
+    obstacles.forEach(o => o.position.z += speed);
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      if (obstacles[i].position.z > 5) {
+        scene.remove(obstacles[i]);
+        obstacles.splice(i, 1);
+        score++;
+        speed += 0.004;
+      }
+    }
+    spawnTimer++;
+    if (spawnTimer > 40) { spawnObstacle(); spawnTimer = 0; }
+
+    obstacles.forEach(o => {
+      if (Math.abs(o.position.x - player.position.x) < 1 &&
+          Math.abs(o.position.z - player.position.z) < 1 &&
+          player.position.y < 2.5) {
+        gameOver = true;
+        document.getElementById('score').textContent = 'GAME OVER! Счёт: ' + score + ' (Нажми чтобы рестарт)';
+      }
+    });
+
+    camera.position.set(player.position.x * 0.3, 5, player.position.z + 8);
+    camera.lookAt(player.position.x, 2, player.position.z - 5);
+
+    document.getElementById('score').textContent = 'Счёт: ' + score;
+  }
+
+  renderer.render(scene, camera);
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
