@@ -75,7 +75,6 @@ const loader = new THREE.GLTFLoader();
 loader.load('player_colored.glb', gltf => {
   player = gltf.scene;
   player.scale.set(1.2, 1.2, 1.2);
-  // ОПУСКАЮ ПЕРСОНАЖА — ноги должны касаться земли
   player.position.set(0, 1.2, 0);
   player.rotation.y = Math.PI;
   player.traverse(obj => { 
@@ -169,7 +168,6 @@ function animate() {
     player.position.x += (targetX - player.position.x) * 0.2;
 
     if (!isJumping) {
-      // Базовая высота — ноги касаются земли
       const baseY = 1.2;
       const bounce = Math.abs(Math.sin(runTime * 2)) * 0.15;
       player.position.y = baseY + bounce;
@@ -182,7 +180,6 @@ function animate() {
       player.rotation.x = 0.2;
       player.rotation.z = 0;
       player.rotation.y = Math.PI;
-      // Приземление — ноги касаются земли
       if (player.position.y <= 1.2) {
         player.position.y = 1.2;
         isJumping = false;
