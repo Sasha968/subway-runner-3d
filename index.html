@@ -2,31 +2,34 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Subway Runner 3D</title>
+<title>Cyberpunk Runner 3D</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; }
-  #score { position: absolute; top: 10px; left: 10px; color: white;
-           font-size: 24px; text-shadow: 2px 2px black; z-index: 10; }
+  #score { position: absolute; top: 10px; left: 10px; color: #00ffff;
+           font-size: 24px; text-shadow: 0 0 10px #00ffff, 2px 2px black; z-index: 10;
+           font-weight: bold; letter-spacing: 2px; }
   #loading { position: absolute; top: 50%; left: 50%;
-             transform: translate(-50%, -50%); color: white;
-             font-size: 30px; text-shadow: 2px 2px black; text-align: center;}
+             transform: translate(-50%, -50%); color: #ff00ff;
+             font-size: 30px; text-shadow: 0 0 15px #ff00ff; text-align: center;
+             font-weight: bold; letter-spacing: 3px; }
   #controls { position: absolute; bottom: 20px; left: 50%;
-              transform: translateX(-50%); color: white;
-              font-size: 14px; text-shadow: 2px 2px black;
-              text-align: center; opacity: 0.7; pointer-events: none; }
+              transform: translateX(-50%); color: #00ffff;
+              font-size: 14px; text-shadow: 0 0 8px #00ffff;
+              text-align: center; opacity: 0.8; pointer-events: none;
+              letter-spacing: 1px; }
 </style>
 </head>
 <body>
-<div id="score">Счёт: 0</div>
-<div id="loading">Загрузка персонажа...<br><small>Подожди пару секунд</small></div>
-<div id="controls">← → или свайп для движения | Пробел или свайп вверх для прыжка</div>
+<div id="score">SCORE: 0</div>
+<div id="loading">LOADING...<br><small>Загрузка персонажа</small></div>
+<div id="controls">← → или свайп | Пробел / свайп вверх — прыжок</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 20, 80);
+scene.background = new THREE.Color(0x0a0014);
+scene.fog = new THREE.Fog(0x0a0014, 15, 70);
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({antialias: true});
@@ -34,20 +37,29 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(5, 10, 5);
-dirLight.castShadow = true;
-scene.add(dirLight);
+scene.add(new THREE.AmbientLight(0x220033, 0.5));
+
+const pinkLight = new THREE.DirectionalLight(0xff00ff, 0.6);
+pinkLight.position.set(5, 10, 5);
+pinkLight.castShadow = true;
+scene.add(pinkLight);
+
+const blueLight = new THREE.DirectionalLight(0x00ffff, 0.4);
+blueLight.position.set(-5, 8, -5);
+scene.add(blueLight);
 
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 2000),
-  new THREE.MeshStandardMaterial({color: 0x444444})
+  new THREE.PlaneGeometry(30, 3000),
+  new THREE.MeshStandardMaterial({color: 0x110022, roughness: 0.3, metalness: 0.7})
 );
 ground.rotation.x = -Math.PI/2;
-ground.position.z = -900;
+ground.position.z = -1400;
 ground.receiveShadow = true;
 scene.add(ground);
+
+const gridHelper = new THREE.GridHelper(30, 30, 0xff00ff, 0x220044);
+gridHelper.position.z = -500;
+scene.add(gridHelper);
 
 const lanes = [-2, 0, 2];
 let currentLane = 1;
@@ -63,7 +75,8 @@ const loader = new THREE.GLTFLoader();
 loader.load('player_colored.glb', gltf => {
   player = gltf.scene;
   player.scale.set(1.2, 1.2, 1.2);
-  player.position.set(0, 2.2, 0);
+  // ОПУСКАЮ ПЕРСОНАЖА — ноги должны касаться земли
+  player.position.set(0, 1.2, 0);
   player.rotation.y = Math.PI;
   player.traverse(obj => { 
     if (obj.isMesh) {
@@ -78,7 +91,7 @@ loader.load('player_colored.glb', gltf => {
 undefined,
 error => {
   console.error('Ошибка загрузки:', error);
-  document.getElementById('loading').textContent = 'Ошибка! Проверь, что файл player_colored.glb загружен.';
+  document.getElementById('loading').textContent = 'ERROR!';
 });
 
 const obstacles = [];
@@ -86,7 +99,13 @@ function spawnObstacle() {
   const lane = Math.floor(Math.random() * 3);
   const obs = new THREE.Mesh(
     new THREE.BoxGeometry(1.5, 1.5, 1),
-    new THREE.MeshStandardMaterial({color: 0x222222})
+    new THREE.MeshStandardMaterial({
+      color: 0xff00ff,
+      emissive: 0xff00ff,
+      emissiveIntensity: 0.5,
+      roughness: 0.2,
+      metalness: 0.8
+    })
   );
   obs.position.set(lanes[lane], 0.75, -100);
   obs.castShadow = true;
@@ -150,8 +169,9 @@ function animate() {
     player.position.x += (targetX - player.position.x) * 0.2;
 
     if (!isJumping) {
-      const baseY = 2.2;
-      const bounce = Math.abs(Math.sin(runTime * 2)) * 0.2;
+      // Базовая высота — ноги касаются земли
+      const baseY = 1.2;
+      const bounce = Math.abs(Math.sin(runTime * 2)) * 0.15;
       player.position.y = baseY + bounce;
       player.rotation.x = 0.15 + Math.sin(runTime) * 0.05;
       player.rotation.z = Math.sin(runTime * 2) * 0.08;
@@ -162,8 +182,9 @@ function animate() {
       player.rotation.x = 0.2;
       player.rotation.z = 0;
       player.rotation.y = Math.PI;
-      if (player.position.y <= 2.2) {
-        player.position.y = 2.2;
+      // Приземление — ноги касаются земли
+      if (player.position.y <= 1.2) {
+        player.position.y = 1.2;
         isJumping = false;
         velocityY = 0;
       }
@@ -184,16 +205,16 @@ function animate() {
     obstacles.forEach(o => {
       if (Math.abs(o.position.x - player.position.x) < 1 &&
           Math.abs(o.position.z - player.position.z) < 1 &&
-          player.position.y < 3.5) {
+          player.position.y < 2.5) {
         gameOver = true;
-        document.getElementById('score').textContent = 'GAME OVER! Счёт: ' + score + ' (Нажми чтобы рестарт)';
+        document.getElementById('score').textContent = 'GAME OVER! Score: ' + score + ' (R - restart)';
       }
     });
 
-    camera.position.set(player.position.x * 0.3, 6, player.position.z + 8);
-    camera.lookAt(player.position.x, 2.5, player.position.z - 5);
+    camera.position.set(player.position.x * 0.3, 4.5, player.position.z + 8);
+    camera.lookAt(player.position.x, 2, player.position.z - 5);
 
-    document.getElementById('score').textContent = 'Счёт: ' + score;
+    document.getElementById('score').textContent = 'SCORE: ' + score;
   }
 
   renderer.render(scene, camera);
